@@ -5,6 +5,8 @@ import plotly.graph_objects as go
 import tkinter as tk
 from tkinter import filedialog
 import tabulate as tabulate
+import random
+import matplotlib.pyplot as plt
 import gc
 
 
@@ -150,7 +152,8 @@ def similarity(entropies, seq_length, names, file_name):
     for index in outer_list:
         saving_files_list.append(index)
     similarity_save(f=file_name, data_list=saving_files_list)
-
+    #TODO make it return entire list later for specific test
+    return outer_list[0][1:-1]
 
 
 def select(str):
@@ -217,13 +220,22 @@ def main():
     print()
     if e:
         print("shannon table:")
-        similarity(shannon_list, window_size, names, "shannon_similarity")
-    if t:
-        print("tsallis table:")
-        similarity(tsallis_list, window_size, names, "tsallis_similarity")
-    if r:
-        print("renyi table:")
-        similarity(renyi_list, window_size, names, "renyi_similarity")
+        test = similarity(shannon_list, window_size, names, "shannon_similarity")
+        mean_value = []
+        for i in range(10000):
+            list3 = []
+            for i in range(10):
+                list3.append(random.choice(test))
+            mean_value.append(sum(list3)/len(list3))
+        plt.hist(mean_value)
+        plt.show()
+    #TODO return the buttom lines to get results for tsallis and renyi
+    #if t:
+    #    print("tsallis table:")
+    #    similarity(tsallis_list, window_size, names, "tsallis_similarity")
+    #if r:
+    #    print("renyi table:")
+    #    similarity(renyi_list, window_size, names, "renyi_similarity")
 
 
 if __name__ == "__main__":
