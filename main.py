@@ -8,6 +8,8 @@ import tabulate as tabulate
 import random
 import matplotlib.pyplot as plt
 import gc
+import statistics
+from datetime import datetime
 
 
 def get_entropy(seq, window_size):
@@ -16,7 +18,7 @@ def get_entropy(seq, window_size):
     renyi_entropy = []
     window_open = 0
     window_close = window_open + int(window_size) - 1
-    while window_close < len(seq):  # and window_close <= selected_range+int(window_size)+int(selected_start)):
+    while window_close < len(seq):
         a_count = 0
         g_count = 0
         c_count = 0
@@ -70,18 +72,19 @@ def tsallis(a_count, c_count, g_count, t_count, double):
 
 
 def open_file():
-    return str(filedialog.askopenfilenames()).replace('(', '').replace(')', '').replace("'", "").strip().split(',')
+    return str(filedialog.askopenfilenames()).replace('(', '').replace(')', '') \
+        .replace("'", "").strip().split(',')
 
 
-def file_save(f, entropies, renyis, tsalliss, save):
-    os.chdir(save)
-    with open(f + '.csv', 'w', newline='') as csv_file:
+def file_save(file_name, shannons, renyis, tsallisses, save_directory):
+    os.chdir(save_directory)
+    with open(file_name + '.csv', 'w', newline='') as csv_file:
         fieldnames = ['id', 'shannon', 'renyi', 'tsallis']
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
-        for index in range(0, len(entropies)):
-            writer.writerow({'id': index, 'shannon': entropies[index],
-                             "renyi": renyis[index], "tsallis": tsalliss[index]})
+        for index in range(0, len(shannons)):
+            writer.writerow({'id': index, 'shannon': shannons[index],
+                             "renyi": renyis[index], "tsallis": tsallisses[index]})
 
 
 def graph(entropies, renyis, tsalliss, e, r, t, names, seq_end):
@@ -117,14 +120,13 @@ def goParallel(list1, list2, window):
 
 
 def walk(list1, list2, window):
-    temp = 0
     result = -1
     for incline in range(0, len(list1) + len(list2) - 2 * window + 1):
         if incline < len(list1) - window + 1:
             temp = goParallel(list1[len(list1) - window - incline:len(list1)], list2, window)
         else:
             temp = goParallel(list1, list2[incline - len(list1) + window:len(list2)], window)
-        if not(temp is None or result > temp or result < -1):
+        if not (temp is None or result > temp or result < -1):
             result = temp
     return result
 
@@ -147,18 +149,17 @@ def similarity(entropies, seq_length, names, file_name):
             inner_list.append(round(result, 2))
         outer_list.append(inner_list)
         inner_list = []
-    saving_files_list = []
-    saving_files_list.append(["names"] + names)
+    saving_files_list = [["names"] + names]
     for index in outer_list:
         saving_files_list.append(index)
     similarity_save(f=file_name, data_list=saving_files_list)
-    #TODO make it return entire list later for specific test
-    return outer_list[0][1:-1]
+    # TODO make it return entire list later for specific test
+    return outer_list
 
 
-def select(str):
-    str = str.lower()
-    return str[0] == 'y', str[1] == 'y', str[2] == 'y'
+def select(choice):
+    choice = choice.lower()
+    return choice[0] == 'y', choice[1] == 'y', choice[2] == 'y'
 
 
 def similarity_save(f, data_list):
@@ -166,6 +167,25 @@ def similarity_save(f, data_list):
         writer = csv.writer(f)
         writer.writerows(data_list)
     f.close()
+
+
+def make_bin(list1, bins):
+    list1 = sorted(list1)
+    max_val = max(list1)
+    min_val = min(list1)
+    bin_list = [0] * bins
+    recent_index = 0
+    bin_size = (max_val-min_val)/bins
+    recent_size = bin_size+min_val
+    index = 0
+    while index < len(list1):
+        if list1[index] > recent_size:
+            recent_index += 1
+            recent_size += bin_size
+            continue
+        bin_list[recent_index] += 1
+        index += 1
+    return bin_list
 
 
 def main():
@@ -180,7 +200,6 @@ def main():
     tsallis_list = []
     names = []
     shortest = -1
-    selected_entropies = ''
     while True:
         selected_entropies = input("selected: ")
         if len(selected_entropies) == 3:
@@ -191,12 +210,12 @@ def main():
     root.withdraw()
     openFile = open_file()
     save = filedialog.askdirectory(title="save directory")
+    print("open files: ")
     for f in openFile:
         filename = open(f.strip(), 'r')
         name = f.split('/')[-1].strip(".fa")
         if not f.endswith(".fa") and not f.endswith(".fasta"):
             continue
-        i = 0
         seq = ''
         for x in filename:
             if x[0] == '>':
@@ -217,23 +236,30 @@ def main():
     #   file_save(name, entropies, renyis, tsalliss, save)
     os.chdir(save)
     # graph(shannon_list, renyi_list, tsallis_list, e, r, t, names, selected_start, shortest-window_size)
-    print()
+    print("similarity: ")
     if e:
-        print("shannon table:")
-        test = similarity(shannon_list, window_size, names, "shannon_similarity")
-        mean_value = []
-        for i in range(10000):
-            list3 = []
-            for i in range(10):
-                list3.append(random.choice(test))
-            mean_value.append(sum(list3)/len(list3))
-        plt.hist(mean_value)
+        test = similarity(shannon_list, 72, names, "shannon_similarity")
+        counter = 1
+        print("bootstrapping+bin")
+        for index in test:
+            mean_value = []
+            data = index[1:-1]
+            for i in range(1000):
+                list3 = []
+                for i in range(0, len(data)):
+                    list3.append(random.choice(data))
+                mean_value.append(sum(list3) / len(list3))
+            mean = statistics.mean(mean_value)
+            standard_deviation = statistics.stdev(mean_value)
+            print("bootstrap", index, round(mean-standard_deviation*2,3), round(mean+standard_deviation*2,3))
+            mean = statistics.mean(index[1:-1])
+            print("-----------------")
         plt.show()
-    #TODO return the buttom lines to get results for tsallis and renyi
-    #if t:
+    # TODO return the buttom lines to get results for tsallis and renyi
+    # if t:
     #    print("tsallis table:")
     #    similarity(tsallis_list, window_size, names, "tsallis_similarity")
-    #if r:
+    # if r:
     #    print("renyi table:")
     #    similarity(renyi_list, window_size, names, "renyi_similarity")
 
