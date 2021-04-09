@@ -72,8 +72,12 @@ def tsallis(a_count, c_count, g_count, t_count, double):
 
 
 def open_file():
-    return str(filedialog.askopenfilenames()).replace('(', '').replace(')', '') \
+    list1 = str(filedialog.askopenfilenames()).replace('(', '').replace(')', '') \
         .replace("'", "").strip().split(',')
+    for i in range(len(list1)):
+        if list1[i] == '':
+            list1.pop(i)
+    return list1
 
 
 def file_save(file_name, shannons, renyis, tsallisses, save_directory):
@@ -188,18 +192,73 @@ def make_bin(list1, bins):
     return bin_list
 
 
+def bootstrap(matrix):
+    for index in matrix:
+        mean_value = []
+        data = index
+        for i in range(1000):
+            list3 = []
+            for i in range(0, len(data)):
+                list3.append(random.choice(data))
+            mean_value.append(sum(list3) / len(list3))
+            three_values(mean_value, "bootstrap")
+
+
+def three_values(mean_value, symbols):
+        mean = statistics.mean(mean_value)
+        standard_deviation = statistics.stdev(mean_value)
+        print(symbols, round(mean - standard_deviation * 2, 3), mean, round(mean + standard_deviation * 2, 3))
+        print("-----------------")
+
+
+def classify(matrix, names):
+    count = [1]
+    symbols = [names[0][0]]
+    #count the amount of each type
+    for index in range(1, len(names)):
+        if names[index][0] == names[index-1][0]:
+            count[-1] += 1
+        else:
+            count.append(1)
+            symbols.append(names[index][0])
+
+    new_matrix = []
+    #create all possibilites of symbols
+    for i in range(len(symbols)):
+        for j in range(i, len(symbols)):
+            new_matrix.append(f"{symbols[i]}-{symbols[j]}")
+    symbols = new_matrix.copy()
+    for i in range(len(new_matrix)):
+        new_matrix[i] = []
+    for i in range(len(names)):
+        for j in range(i+1, len(names)):
+            for k in range(len(new_matrix)):
+                if matrix[i][0][0] == symbols[k][0] and names[j][0] == symbols[k][2]:
+                    new_matrix[k].append(matrix[i][j+1])
+                    break
+    for i in range(len(new_matrix)):
+        if not new_matrix[i]:
+            new_matrix[i].append(0.0)
+    return new_matrix, symbols
+
+
+
+
+
 def main():
     gc.enable()
-    window_size = int(input("window size: "))
+    window_size = 0
+    while window_size <= 50 or window_size % 3 != 0:
+        window_size = int(input("window size (>50 and %3 == 0): "))
+
     print("select entropy by write y or n in xyz")
     print("x shannon")
     print("y renyi")
-    print("x tsallis")
+    print("z tsallis")
     shannon_list = []
     renyi_list = []
     tsallis_list = []
     names = []
-    shortest = -1
     while True:
         selected_entropies = input("selected: ")
         if len(selected_entropies) == 3:
@@ -211,6 +270,7 @@ def main():
     openFile = open_file()
     save = filedialog.askdirectory(title="save directory")
     print("open files: ")
+    flag = False
     for f in openFile:
         filename = open(f.strip(), 'r')
         name = f.split('/')[-1].strip(".fa")
@@ -219,43 +279,35 @@ def main():
         seq = ''
         for x in filename:
             if x[0] == '>':
-                name += "_" + x.split('|')[1]
+                names.append(name.strip(".fa"))
+                seq = ''
                 continue
             else:
                 seq += x.rstrip()
         filename.close()
-        if len(seq) < 50 or len(seq) - window_size <= window_size:
-            continue
-        if len(seq) < shortest or shortest < 0:
-            shortest = len(seq)
         entropies, renyis, tsalliss = get_entropy(seq, window_size)
         shannon_list.append(entropies)
         renyi_list.append(renyis)
         tsallis_list.append(tsalliss)
-        names.append(name.strip(".fa"))
+        if len(shannon_list[-1]) < window_size:
+            shannon_list.pop()
+            renyi_list.pop()
+            tsallis_list.pop()
+            names.pop()
     #   file_save(name, entropies, renyis, tsalliss, save)
     os.chdir(save)
     # graph(shannon_list, renyi_list, tsallis_list, e, r, t, names, selected_start, shortest-window_size)
-    print("similarity: ")
     if e:
-        test = similarity(shannon_list, 72, names, "shannon_similarity")
-        counter = 1
+        matrix = similarity(shannon_list, window_size, names, "shannon_similarity")
         print("bootstrapping+bin")
-        for index in test:
-            mean_value = []
-            data = index[1:-1]
-            for i in range(1000):
-                list3 = []
-                for i in range(0, len(data)):
-                    list3.append(random.choice(data))
-                mean_value.append(sum(list3) / len(list3))
-            mean = statistics.mean(mean_value)
-            standard_deviation = statistics.stdev(mean_value)
-            print("bootstrap", index, round(mean-standard_deviation*2,3), round(mean+standard_deviation*2,3))
-            mean = statistics.mean(index[1:-1])
-            print("-----------------")
-        plt.show()
-    # TODO return the buttom lines to get results for tsallis and renyi
+        matrix, comparison = classify(matrix,names)
+        copy_comparison = comparison.copy()
+        all_values = []
+        for i in range(len(matrix)):
+            all_values += matrix[i]
+            three_values(matrix[i], copy_comparison[i])
+        bootstrap(matrix)
+
     # if t:
     #    print("tsallis table:")
     #    similarity(tsallis_list, window_size, names, "tsallis_similarity")
