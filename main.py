@@ -193,22 +193,25 @@ def make_bin(list1, bins):
 
 
 def bootstrap(matrix):
-    for index in matrix:
-        mean_value = []
-        data = index
-        for i in range(1000):
-            list3 = []
-            for i in range(0, len(data)):
-                list3.append(random.choice(data))
-            mean_value.append(sum(list3) / len(list3))
-            three_values(mean_value, "bootstrap")
+    mean_value = []
+    for i in range(1000):
+        list3 = []
+        for i in range(0, len(matrix)):
+            list3.append(random.choice(matrix))
+        mean_value.append(sum(list3) / len(list3))
+    three_values(mean_value, "bootstrap")
 
 
 def three_values(mean_value, symbols):
-        mean = statistics.mean(mean_value)
-        standard_deviation = statistics.stdev(mean_value)
-        print(symbols, round(mean - standard_deviation * 2, 3), mean, round(mean + standard_deviation * 2, 3))
-        print("-----------------")
+    mean = statistics.mean(mean_value)
+    if len(mean_value) < 2 and len(mean_value) != 0:
+        mean_value.append(mean_value[0])
+    elif len(mean_value) == 0:
+        print("can't handle empty list of comparison",symbols)
+        return
+    standard_deviation = statistics.stdev(mean_value)
+    print(symbols, round(mean - standard_deviation * 2, 3), mean, round(mean + standard_deviation * 2, 3))
+    print("-----------------")
 
 
 def classify(matrix, names):
@@ -298,15 +301,15 @@ def main():
     os.chdir(save)
     # graph(shannon_list, renyi_list, tsallis_list, e, r, t, names, selected_start, shortest-window_size)
     if e:
-        matrix = similarity(shannon_list, window_size, names, "shannon_similarity")
         print("bootstrapping+bin")
-        matrix, comparison = classify(matrix,names)
+        matrix = similarity(shannon_list, window_size, names, "shannon_similarity")
+        matrix, comparison = classify(matrix, names)
         copy_comparison = comparison.copy()
         all_values = []
         for i in range(len(matrix)):
-            all_values += matrix[i]
+            all_values.extend(matrix[i])
             three_values(matrix[i], copy_comparison[i])
-        bootstrap(matrix)
+        bootstrap(all_values)
 
     # if t:
     #    print("tsallis table:")
